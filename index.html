@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111e31"><title>NPB AI LAB v0.5 + PITCHER VISION</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,'Noto Sans JP',sans-serif;background:#091321;color:#f0f5fc}
+*{box-sizing:border-box}body{margin:0;font-size:15px}header{padding:18px 16px;background:#11233b;border-bottom:1px solid #33465e}h1{font-size:21px;margin:0 0 6px}h2{font-size:17px;margin:0 0 12px}h3{font-size:15px;margin:0 0 10px}small,.muted{color:#a8bad5}main{max-width:860px;margin:auto;padding:14px;padding-bottom:28px}nav{display:flex;gap:6px;position:sticky;top:0;background:#091321;padding:8px 0;z-index:1}nav button{flex:1;padding:11px 4px;font-size:12px}button,input,select,textarea{font:inherit;background:#172b47;color:#eff6ff;border:1px solid #43607f;border-radius:11px;min-height:44px;padding:9px 10px}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}button.active,.primary{background:#1769bb;border-color:#3688e2}button.secondary{background:#263951}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #60bcff}input,select{width:100%;min-width:0}input[type=checkbox]{width:18px;min-height:auto;height:18px;vertical-align:middle}input[type=date]{color-scheme:dark}label{display:block;font-size:13px;color:#c7d6ed;margin:10px 0 5px}.card{background:#13243b;border:1px solid #2e425e;border-radius:16px;padding:15px;margin:0 0 14px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}.actions>button{flex:1;min-width:120px}.badge{display:inline-block;font-size:11px;padding:5px 8px;border-radius:99px;background:#344765;color:#e3f0ff}.badge.green{background:#11483a;color:#7be7b2}.badge.warn{background:#5a391f;color:#ffda9c}.score{font-size:36px;font-weight:800;text-align:center;letter-spacing:.5px;margin:6px 0}.stat{padding:12px 10px;text-align:center;background:#1c3553;border-radius:12px}.stat b{display:block;font-size:21px}.bar{height:11px;background:#2b4668;border-radius:99px;overflow:hidden}.bar i{height:100%;display:block;background:#53b7f9}.hidden{display:none!important}.alert{padding:12px;border:1px solid #a47b36;background:#4b361d;color:#ffe5b4;border-radius:10px;font-size:13px}.good{color:#81e2b3}.bad{color:#ffbf9c}.info{font-size:13px;color:#b1c6df}.game-list{display:grid;gap:8px;margin-top:12px}.game-btn{text-align:left;min-height:66px;width:100%;background:#1b314b}.game-btn.selected{border-color:#6dc2ff;background:#1b4772}.game-btn strong{display:block;font-size:14px}.game-btn small{display:block;margin-top:3px}.status{font-size:13px;line-height:1.55;min-height:22px}.table-scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px;min-width:490px}th,td{text-align:left;padding:9px 5px;border-bottom:1px solid #31455f}a{color:#91cbff}footer{text-align:center;font-size:11px;color:#9aafcb;padding:14px;line-height:1.8}.subtle{font-size:12px;color:#b0bed0;line-height:1.5}button.danger{border-color:#9d4a58;color:#ffcad2}.setting-key{letter-spacing:1px}.checkrow{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:13px;color:#c7d6ed}.checkrow input{flex:none}#alert{margin-bottom:13px}@media (min-width:700px){.desktop-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}}
+</style></head>
+<body>
+<header><h1>⚾ NPB AI LAB <small>v0.5</small></h1><small>NPB全12球団・無料API連携 + 投手フォームAI解析 / Pixel対応 / 非公式・個人用</small></header>
+<main>
+<nav><button class="active" data-tab="live">⚾ ライブ</button><button data-tab="pitcher">📹 投球</button><button data-tab="review">📊 試合後</button><button data-tab="settings">⚙️ 設定</button></nav>
+<div id="alert" class="alert">APIキー未設定：設定タブから無料キーを登録すると、NPBの日程・得点を自動取得できます。</div>
+<section id="live">
+ <div class="card">
+  <div class="row"><h2 style="margin:0">NPB試合一覧</h2><span id="connectionBadge" class="badge">未接続</span></div>
+  <div class="grid"><div><label for="gameDate">試合日（日本時間）</label><input id="gameDate" type="date"></div><div><label>取得元</label><div class="stat" style="padding:10px;font-size:13px">API-SPORTS Baseball<br><small>無料枠・30分更新</small></div></div></div>
+  <div class="actions"><button class="primary" id="fetchGames">試合を自動取得</button><button id="toggleAuto">自動更新：OFF</button></div>
+  <div id="fetchStatus" class="status muted" aria-live="polite">取得前です。</div>
+  <div id="quotaStatus" class="subtle">当アプリからの本日API呼び出し：0回（端末での概算）</div>
+  <div class="game-list" id="games"><p class="muted">試合一覧は未取得です。APIキー設定後に取得できます。</p></div>
+ </div>
+ <div class="desktop-cols">
+ <div class="card"><h2>試合状況 <span id="sourceTag" class="badge">手動</span></h2>
+  <div class="grid"><div><label for="away">先攻</label><select id="away"></select></div><div><label for="home">後攻</label><select id="home"></select></div></div>
+  <div class="grid"><div><label for="as">先攻の得点</label><input id="as" type="number" min="0" max="99" value="0"></div><div><label for="hs">後攻の得点</label><input id="hs" type="number" min="0" max="99" value="0"></div></div>
+  <div class="tri"><div><label for="inning">回</label><input id="inning" type="number" min="1" max="20" value="1"></div><div><label for="half">表・裏</label><select id="half"><option value="top">表</option><option value="bottom">裏</option></select></div><div><label for="outs">アウト</label><select id="outs"><option>0</option><option>1</option><option>2</option></select></div></div>
+  <div class="tri"><div><label for="b1">一塁</label><select id="b1"><option value="0">なし</option><option value="1">あり</option></select></div><div><label for="b2">二塁</label><select id="b2"><option value="0">なし</option><option value="1">あり</option></select></div><div><label for="b3">三塁</label><select id="b3"><option value="0">なし</option><option value="1">あり</option></select></div></div>
+  <div class="tri"><div><label for="balls">ボール</label><select id="balls"><option>0</option><option>1</option><option>2</option><option>3</option></select></div><div><label for="strikes">ストライク</label><select id="strikes"><option>0</option><option>1</option><option>2</option></select></div><div><label for="pitches">投球数</label><input id="pitches" type="number" min="0" max="300" value="0"></div></div>
+  <p id="sourceNote" class="subtle">アウト・走者・カウント・球数はAPIから取得できないため手動入力です。</p>
+  <div class="actions"><button class="primary" id="calc">分析して予測を保存</button><button id="unlink">自動連携を解除</button></div>
+ </div>
+ <div class="card"><h2>ライブ分析 <span class="badge warn">簡易モデル</span></h2>
+  <div id="score" class="score">—</div><div class="grid"><div class="stat"><small>先攻の推定勝率</small><b id="awp">—</b></div><div class="stat"><small>後攻の推定勝率</small><b id="hwp">—</b></div></div>
+  <div class="bar" style="margin-top:14px"><i id="winbar" style="width:50%"></i></div><p id="notes" class="muted"></p><p id="strategy"></p><div class="alert">勝率は公式データで学習していない試作値。采配の優劣や次球の球種を断定する機能ではありません。</div>
+ </div></div>
+</section>
+<section id="pitcher" class="hidden"><div class="card" style="padding:10px"><p class="info">📷 投手1人の全身を映すと、MediaPipeが肘・膝・体幹などの画像上の姿勢を推定します。カメラはHTTPS公開時に利用可能です。分析データは端末内に保存します。</p><iframe title="投球フォームAI解析" allow="camera; microphone; autoplay" referrerpolicy="no-referrer" style="display:block;width:100%;height:1460px;border:0;border-radius:12px;background:#091321" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;ja&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1,viewport-fit=cover&quot;&gt;
+&lt;meta name=&quot;theme-color&quot; content=&quot;#101e32&quot;&gt;&lt;title&gt;NPB PITCHER VISION v1.0&lt;/title&gt;
+&lt;style&gt;
+:root {color-scheme:dark;font-family:system-ui,-apple-system,&#x27;Noto Sans JP&#x27;,sans-serif;background:#081322;color:#e8f1ff;--blue:#6dc5ff;--muted:#a3b5d0;--panel:#13263e;--edge:#35506f}
+*{box-sizing:border-box} body{margin:0;font-size:14px} header{background:#11223a;padding:17px 15px;border-bottom:1px solid #34465e}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 12px}h3{font-size:14px;margin:0 0 9px}p{line-height:1.6}main{max-width:900px;padding:12px;margin:auto;padding-bottom:32px}button,input,select{font:inherit;background:#1a3554;color:#eff8ff;border:1px solid #54728f;border-radius:11px;min-height:44px;padding:9px 11px}button{cursor:pointer}button:disabled{opacity:.48;cursor:not-allowed}.primary{background:#1171be;border-color:#329bed}.green{background:#185642;border-color:#2b8e6a}.muted{color:var(--muted)}small{color:var(--muted)}.card{background:var(--panel);border:1px solid #2f4968;border-radius:16px;padding:14px;margin-bottom:12px}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.actions&gt;*{flex:1;min-width:115px}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}label{display:block;color:#c6d7eb;font-size:12px;margin:10px 0 6px}select,input[type=file],input[type=text]{width:100%}.stat{background:#1a3552;border-radius:12px;padding:10px;min-width:0}.stat small{font-size:11px;display:block}.stat strong{display:block;font-size:22px;margin-top:5px;overflow-wrap:anywhere}nav{position:sticky;top:0;z-index:4;display:flex;gap:6px;background:#081322;padding:8px 0}nav button{flex:1;font-size:12px;padding:7px 5px}nav button.active{background:#1473bc}.hidden{display:none!important}.frame{background:#050a11;border:1px solid #3c5571;position:relative;overflow:hidden;border-radius:12px;min-height:210px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}.frame video{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}.frame canvas{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;pointer-events:none}.placeholder{max-width:260px;text-align:center;color:#9eb0c7}.status{border:1px solid #345a7c;background:#152b45;border-radius:10px;padding:10px;margin:10px 0;line-height:1.6;font-size:12px}.error{border-color:#b66558;background:#463029;color:#ffe3d7}.success{color:#82e5c0}.warn{color:#ffe0a0}.caption{color:#b1c5dc;font-size:12px;line-height:1.6}.chip{display:inline-flex;border:1px solid #456487;border-radius:100px;padding:5px 9px;font-size:11px;background:#20334e;margin:3px 4px 2px 0}.analysis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.analysis .stat strong{font-size:21px}.analysis .stat small{line-height:1.5}.timeline{width:100%;height:175px;display:block;background:#0e2036;border-radius:10px}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px}td,th{padding:8px 6px;border-bottom:1px solid #324866;text-align:left}th{color:#bad7ef}.notice{color:#e9d5a0}input[type=range]{width:100%;padding:0;min-height:24px}a{color:#9bd2ff}.footer{font-size:11px;text-align:center;padding:12px;color:#8eaac5}.mini{font-size:12px}.hiddenTab{display:none}.pill{background:#244565;border-radius:99px;padding:4px 8px;font-size:11px;color:#bde4ff} .metricLabel{font-weight:600}.row{display:flex;gap:8px;justify-content:space-between;align-items:center}.range{display:flex;gap:8px;align-items:center}details{margin-top:12px}summary{cursor:pointer;padding:8px;color:#a8d8ff}@media(min-width:760px){.desktop{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:13px}.frame{aspect-ratio:16/10}.analysis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;header&gt;&lt;h1&gt;⚾ PITCHER VISION &lt;small&gt;v1.0&lt;/small&gt;&lt;/h1&gt;&lt;small&gt;NPB観戦用・投手の映像フォーム解析 / Pixel 8 Pro 対応&lt;/small&gt;&lt;/header&gt;
+&lt;main&gt;
+&lt;nav&gt;&lt;button class=&quot;active&quot; data-page=&quot;capture&quot;&gt;📷 カメラ・動画&lt;/button&gt;&lt;button data-page=&quot;insights&quot;&gt;📈 動作解析&lt;/button&gt;&lt;button data-page=&quot;history&quot;&gt;💾 比較・保存&lt;/button&gt;&lt;/nav&gt;
+&lt;section id=&quot;capture&quot;&gt;
+ &lt;div class=&quot;card&quot;&gt;
+  &lt;h2&gt;① 映像を準備&lt;/h2&gt;
+  &lt;div class=&quot;grid2&quot;&gt;&lt;div&gt;&lt;label for=&quot;throwHand&quot;&gt;投球腕&lt;/label&gt;&lt;select id=&quot;throwHand&quot;&gt;&lt;option value=&quot;right&quot;&gt;右投げ&lt;/option&gt;&lt;option value=&quot;left&quot;&gt;左投げ&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div&gt;&lt;label for=&quot;sampleMs&quot;&gt;解析間隔（端末負荷）&lt;/label&gt;&lt;select id=&quot;sampleMs&quot;&gt;&lt;option value=&quot;120&quot;&gt;約8コマ/秒&lt;/option&gt;&lt;option value=&quot;200&quot; selected&gt;約5コマ/秒・標準&lt;/option&gt;&lt;option value=&quot;350&quot;&gt;約3コマ/秒・省電力&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;actions&quot;&gt;&lt;button class=&quot;primary&quot; id=&quot;loadAI&quot;&gt;AIモデルを読み込む&lt;/button&gt;&lt;button id=&quot;cameraOn&quot;&gt;📷 カメラ開始&lt;/button&gt;&lt;button id=&quot;cameraOff&quot;&gt;■ カメラ停止&lt;/button&gt;&lt;/div&gt;
+  &lt;label for=&quot;chooseVideo&quot;&gt;または撮影済みの動画を選ぶ（端末内のみで処理）&lt;/label&gt;&lt;input type=&quot;file&quot; id=&quot;chooseVideo&quot; accept=&quot;video/*&quot;&gt;
+  &lt;p class=&quot;caption&quot;&gt;正面または真横から投手1人の全身を撮影。TV中継でも利用できるけれど、カメラ切替・遮蔽・遠距離では追跡精度が落ちる。動画そのものは外部サーバーにアップロードしない。&lt;/p&gt;
+  &lt;div id=&quot;status&quot; role=&quot;status&quot; aria-live=&quot;polite&quot; class=&quot;status&quot;&gt;準備前。AIモデル読込には初回ネット接続が必要です。&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;desktop&quot;&gt;
+  &lt;div class=&quot;card&quot;&gt;
+   &lt;div class=&quot;row&quot;&gt;&lt;h2 style=&quot;margin:0&quot;&gt;② ピッチャーの映像&lt;/h2&gt;&lt;span id=&quot;liveTag&quot; class=&quot;pill&quot;&gt;映像未選択&lt;/span&gt;&lt;/div&gt;
+   &lt;div class=&quot;frame&quot; id=&quot;frame&quot;&gt;&lt;div class=&quot;placeholder&quot; id=&quot;placeholder&quot;&gt;📷&lt;p&gt;カメラを起動するか、動画を選んでね&lt;/p&gt;&lt;/div&gt;&lt;video id=&quot;video&quot; playsinline muted preload=&quot;metadata&quot;&gt;&lt;/video&gt;&lt;canvas id=&quot;overlay&quot;&gt;&lt;/canvas&gt;&lt;/div&gt;
+   &lt;div class=&quot;actions&quot;&gt;&lt;button class=&quot;primary&quot; id=&quot;run&quot; disabled&gt;▶ 解析開始&lt;/button&gt;&lt;button id=&quot;stop&quot; disabled&gt;⏸ 解析停止&lt;/button&gt;&lt;button id=&quot;snap&quot; disabled&gt;📸 画像を保存&lt;/button&gt;&lt;/div&gt;
+   &lt;div class=&quot;actions&quot;&gt;&lt;button id=&quot;recordStart&quot; disabled&gt;● カメラ録画&lt;/button&gt;&lt;button id=&quot;recordStop&quot; disabled&gt;■ 録画を終了&lt;/button&gt;&lt;/div&gt;
+   &lt;div class=&quot;row&quot;&gt;&lt;small id=&quot;counter&quot;&gt;解析サンプル: 0件&lt;/small&gt;&lt;small id=&quot;trackStatus&quot;&gt;姿勢検出: —&lt;/small&gt;&lt;/div&gt;
+   &lt;div class=&quot;actions&quot;&gt;&lt;button id=&quot;bookmarkPlant&quot; disabled&gt;📍 接地を記録&lt;/button&gt;&lt;button id=&quot;bookmarkRelease&quot; disabled&gt;📍 リリースを目視記録&lt;/button&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;
+    &lt;h2&gt;③ 現在のフォーム推定&lt;/h2&gt;
+    &lt;div class=&quot;analysis&quot;&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;投球腕・肘関節角&lt;/small&gt;&lt;strong id=&quot;mElbow&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;踏み出し脚・膝関節角&lt;/small&gt;&lt;strong id=&quot;mKnee&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;体幹の左右傾き&lt;/small&gt;&lt;strong id=&quot;mTrunk&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;肩の水平に対する傾き&lt;/small&gt;&lt;strong id=&quot;mShoulder&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;足間距離 / 体幹・脚長&lt;/small&gt;&lt;strong id=&quot;mStride&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+     &lt;div class=&quot;stat&quot;&gt;&lt;small&gt;必要関節の可視性（平均）&lt;/small&gt;&lt;strong id=&quot;mQuality&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div id=&quot;tip&quot; class=&quot;status&quot;&gt;映像を読み込むと関節推定値が表示されます。&lt;/div&gt;
+    &lt;p class=&quot;caption&quot;&gt;角度は2D画像上の推定値。撮影方向・遠近法で変わるため、実際の関節角度や故障リスクの診断ではありません。球速・回転・球種・球のリリース瞬間は測れません。&lt;/p&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;
+&lt;/section&gt;
+&lt;section id=&quot;insights&quot; class=&quot;hidden&quot;&gt;
+  &lt;div class=&quot;card&quot;&gt;&lt;h2&gt;解析値の時間変化&lt;/h2&gt;&lt;canvas id=&quot;trend&quot; class=&quot;timeline&quot; width=&quot;780&quot; height=&quot;240&quot;&gt;&lt;/canvas&gt;&lt;p class=&quot;caption&quot;&gt;青：肘角度（0〜180°） / 緑：踏み出し膝角度（0〜180°）。追跡できたフレームのみ記録。&lt;/p&gt;&lt;/div&gt;
+  &lt;div class=&quot;grid3&quot;&gt;&lt;div class=&quot;stat&quot;&gt;&lt;small&gt;有効フレーム&lt;/small&gt;&lt;strong id=&quot;validFrames&quot;&gt;0&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;stat&quot;&gt;&lt;small&gt;肘角度の観測範囲&lt;/small&gt;&lt;strong id=&quot;elbowRange&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;stat&quot;&gt;&lt;small&gt;膝角度の観測範囲&lt;/small&gt;&lt;strong id=&quot;kneeRange&quot;&gt;—&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;card&quot; style=&quot;margin-top:12px&quot;&gt;&lt;h2&gt;映像から確認するポイント&lt;/h2&gt;&lt;div id=&quot;insightsText&quot; class=&quot;caption&quot;&gt;姿勢が追跡できたら、ここに観測値と撮影条件の注意点が表示されます。&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;&lt;h2&gt;手動イベントマーカー&lt;/h2&gt;&lt;div id=&quot;marks&quot; class=&quot;caption&quot;&gt;まだ登録がありません。&lt;/div&gt;&lt;p class=&quot;caption&quot;&gt;足の接地とボールのリリースは映像を目視して記録する機能です。AIが検出した時刻ではありません。&lt;/p&gt;&lt;/div&gt;
+&lt;/section&gt;
+&lt;section id=&quot;history&quot; class=&quot;hidden&quot;&gt;
+  &lt;div class=&quot;card&quot;&gt;&lt;h2&gt;解析セッションの保存&lt;/h2&gt;&lt;label for=&quot;sessionName&quot;&gt;セッション名（任意）&lt;/label&gt;&lt;input type=&quot;text&quot; id=&quot;sessionName&quot; placeholder=&quot;例：中日 投手A 7回表 / 側面映像&quot; maxlength=&quot;70&quot;&gt;
+  &lt;div class=&quot;actions&quot;&gt;&lt;button class=&quot;primary&quot; id=&quot;saveSession&quot;&gt;端末内に保存&lt;/button&gt;&lt;button id=&quot;exportCSV&quot;&gt;CSV書き出し&lt;/button&gt;&lt;button id=&quot;exportJSON&quot;&gt;JSON書き出し&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;caption&quot;&gt;保存されるのはフォームの数値とマーカーだけで、映像・画像は含まれません。最大20件まで保存。別のHTML・アプリからは保存内容を参照できない場合があります。&lt;/p&gt;&lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;&lt;h2&gt;保存した解析&lt;/h2&gt;&lt;div class=&quot;tablewrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;日時・名前&lt;/th&gt;&lt;th&gt;有効フレーム&lt;/th&gt;&lt;th&gt;平均肘角&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody id=&quot;savedSessions&quot;&gt;&lt;tr&gt;&lt;td colspan=&quot;4&quot;&gt;保存なし&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;card&quot;&gt;&lt;h2&gt;セッション比較&lt;/h2&gt;&lt;p class=&quot;caption&quot;&gt;異なる撮影位置では数値を比較しても意味が変わる。できるだけ同じ撮影角度・距離で比較してね。&lt;/p&gt;&lt;div class=&quot;grid2&quot;&gt;&lt;div&gt;&lt;label for=&quot;compareA&quot;&gt;比較A&lt;/label&gt;&lt;select id=&quot;compareA&quot;&gt;&lt;/select&gt;&lt;/div&gt;&lt;div&gt;&lt;label for=&quot;compareB&quot;&gt;比較B&lt;/label&gt;&lt;select id=&quot;compareB&quot;&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;div id=&quot;compareResult&quot; class=&quot;status&quot;&gt;2つの保存セッションを選択して比較できます。&lt;/div&gt;&lt;/div&gt;
+&lt;/section&gt;
+&lt;div class=&quot;card&quot;&gt;&lt;details&gt;&lt;summary&gt;使い方・測定の限界・エラー対処&lt;/summary&gt;
+ &lt;p class=&quot;caption&quot;&gt;1. 初回は「AIモデルを読み込む」→「カメラ開始」か動画選択→「解析開始」。初回はAIモデルとWebAssemblyをネットから読み込む。モデル推定は端末側で行う。&lt;/p&gt;
+ &lt;p class=&quot;caption&quot;&gt;2. カメラはHTTPSのサイトまたはブラウザが許可する安全な環境が必要。HTMLファイルを直接開いたとき動かなければ、GitHub PagesなどでHTTPS公開するか「動画を選ぶ」で解析する。AndroidのChromeでカメラ権限を許可する。&lt;/p&gt;
+ &lt;p class=&quot;caption&quot;&gt;3. 撮影は可能なら投球側面、固定したカメラ、全身が十分に大きく映る条件。中継映像のコピーを無断配信・共有しない。&lt;/p&gt;
+ &lt;p class=&quot;caption&quot;&gt;4. 骨格推定は球・球速・スピン・実際のリリース位置を追跡しない。手動「リリース」マーカーは人間による指定であり自動検出ではない。3Dの肩外旋角や肘トルク、靱帯への負荷などは診断できない。&lt;/p&gt;
+ &lt;p class=&quot;caption&quot;&gt;5. 高速な投球動作の詳細には高FPSカメラや専用システムが必要。8コマ/秒程度の解析は練習フォームの観察向けで、瞬間的な動作ピークを取りこぼす。&lt;/p&gt;
+ &lt;p class=&quot;caption&quot;&gt;6. Privacy：端末の映像データはこのアプリからアップロードしない。MediaPipeのライブラリ・モデルは外部CDNから取得するため、初回は通信が必要。Googleの公開説明ではMediaPipe Tasksの処理は端末側だが、利用状況メトリクスが送信される場合がある。&lt;/p&gt;
+ &lt;/details&gt;&lt;/div&gt;
+&lt;/main&gt;&lt;div class=&quot;footer&quot;&gt;NPB PITCHER VISION v1.0 / Google MediaPipe Pose Landmarker / NPB非公式・個人利用向け&lt;/div&gt;
+&lt;script&gt;
+&#x27;use strict&#x27;;
+(function(){
+const $=id=&gt;document.getElementById(id);
+const VERSION=&#x27;1.0.0&#x27;;
+const LANDMARK={nose:0,LS:11,RS:12,LE:13,RE:14,LW:15,RW:16,LH:23,RH:24,LK:25,RK:26,LA:27,RA:28};
+const CONNECT=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+const KEY=&#x27;npb-pitcher-vision-sessions-v10&#x27;;
+const video=$(&#x27;video&#x27;),canvas=$(&#x27;overlay&#x27;),ctx=canvas.getContext(&#x27;2d&#x27;);
+let ai=null,stream=null,recorder=null,recordChunks=[],recordedUrl=null,videoUrl=null;
+let running=false,frameRequest=0,camMode=false,lastSampleAt=0,sampleStart=0,lastMediaTime=-1,frames=[],marks=[],lastLandmarks=null,activePage=&#x27;capture&#x27;;
+let poseState=null, statusError=false, busy=false, sessionStartDate=new Date().toISOString();
+let sessions=[];try{sessions=JSON.parse(localStorage.getItem(KEY))||[]}catch{};if(!Array.isArray(sessions))sessions=[];
+function status(msg,err=false){$(&#x27;status&#x27;).textContent=msg;$(&#x27;status&#x27;).className=&#x27;status&#x27;+(err?&#x27; error&#x27;:&#x27;&#x27;);statusError=err}
+function tab(page){activePage=page;for(const b of document.querySelectorAll(&#x27;nav button&#x27;))b.classList.toggle(&#x27;active&#x27;,b.dataset.page===page);for(const id of [&#x27;capture&#x27;,&#x27;insights&#x27;,&#x27;history&#x27;])$(id).classList.toggle(&#x27;hidden&#x27;,id!==page);if(page===&#x27;insights&#x27;){updateTrend();updateInsights()}if(page===&#x27;history&#x27;)refreshSaved()}
+for(const b of document.querySelectorAll(&#x27;nav button&#x27;))b.addEventListener(&#x27;click&#x27;,()=&gt;tab(b.dataset.page));
+function safe(v){return typeof v===&#x27;number&#x27;&amp;&amp;Number.isFinite(v)}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function mid(a,b){return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+function ang(a,b,c){const ab={x:a.x-b.x,y:a.y-b.y},cb={x:c.x-b.x,y:c.y-b.y};const dot=ab.x*cb.x+ab.y*cb.y,den=Math.hypot(ab.x,ab.y)*Math.hypot(cb.x,cb.y);return den&gt;0.00001?Math.acos(Math.max(-1,Math.min(1,dot/den)))*180/Math.PI:null}
+function visible(p){return !!p&amp;&amp;p.x&gt;=0&amp;&amp;p.x&lt;=1&amp;&amp;p.y&gt;=0&amp;&amp;p.y&lt;=1&amp;&amp;(p.visibility===undefined||p.visibility&gt;=.52)}
+function calcPose(points,hand){const right=hand===&#x27;right&#x27;,SI=right?12:11,EI=right?14:13,WI=right?16:15,KI=right?25:26,HI=right?23:24,AI=right?27:28;
+ const relevant=[11,12,23,24,SI,EI,WI,HI,KI,AI,27,28,25,26],quality=relevant.reduce((s,i)=&gt;s+(points[i]?.visibility??0),0)/relevant.length;
+ const getIds=[11,12,23,24,SI,EI,WI,HI,KI,AI,27,28,25,26];if(!getIds.every(i=&gt;visible(points[i])))return {ok:false,quality,reason:&#x27;必要な肩・手首・腰・脚が画面内で追跡できていません&#x27;};
+ const shoulder=mid(points[11],points[12]),hip=mid(points[23],points[24]),knee=mid(points[25],points[26]),ankle=mid(points[27],points[28]);
+ const torso=dist(shoulder,hip),leg=dist(hip,knee)+dist(knee,ankle),ratio=(torso+leg)&gt;0.02?dist(points[27],points[28])/(torso+leg):null;
+ const lean=Math.atan2(shoulder.x-hip.x,hip.y-shoulder.y)*180/Math.PI;
+ const shoulderTilt=Math.atan2(points[12].y-points[11].y,points[12].x-points[11].x)*180/Math.PI;
+ return {ok:true,quality,elbow:ang(points[SI],points[EI],points[WI]),knee:ang(points[HI],points[KI],points[AI]),trunk:lean,shoulder:shoulderTilt,stride:ratio};}
+function pad(v,d=0){return safe(v)?v.toFixed(d):&#x27;—&#x27;}
+function updateMetrics(v){const set=(id,x,unit=&#x27;&#x27;,digits=0)=&gt;$(id).textContent=safe(x)?pad(x,digits)+unit:&#x27;—&#x27;;
+ if(!v||!v.ok){for(const id of [&#x27;mElbow&#x27;,&#x27;mKnee&#x27;,&#x27;mTrunk&#x27;,&#x27;mShoulder&#x27;,&#x27;mStride&#x27;])$(id).textContent=&#x27;—&#x27;;$(&#x27;mQuality&#x27;).textContent=v?safe(v.quality)?pad(v.quality*100)+&#x27;%&#x27;:&#x27;—&#x27;:&#x27;—&#x27;;return}
+ set(&#x27;mElbow&#x27;,v.elbow,&#x27;°&#x27;);set(&#x27;mKnee&#x27;,v.knee,&#x27;°&#x27;);set(&#x27;mTrunk&#x27;,v.trunk,&#x27;°&#x27;,1);set(&#x27;mShoulder&#x27;,v.shoulder,&#x27;°&#x27;,1);set(&#x27;mStride&#x27;,v.stride,&#x27;&#x27;,2);set(&#x27;mQuality&#x27;,v.quality*100,&#x27;%&#x27;);}
+function resizeCanvas(){const w=video.videoWidth||640,h=video.videoHeight||480;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}}
+function overlay(pose){resizeCanvas();ctx.clearRect(0,0,canvas.width,canvas.height);if(!pose)return;
+ const p=i=&gt;({x:pose[i].x*canvas.width,y:pose[i].y*canvas.height});ctx.lineWidth=Math.max(2,canvas.width/310);ctx.lineCap=&#x27;round&#x27;;
+ for(const [a,b] of CONNECT){if(!visible(pose[a])||!visible(pose[b]))continue;const x=p(a),y=p(b);ctx.strokeStyle=&#x27;#72e7ff&#x27;;ctx.beginPath();ctx.moveTo(x.x,x.y);ctx.lineTo(y.x,y.y);ctx.stroke()}
+ for(const [i,v] of pose.entries()){if(!visible(v)||![0,11,12,13,14,15,16,23,24,25,26,27,28].includes(i))continue;const x=p(i);ctx.beginPath();ctx.fillStyle=&#x27;#f9d27a&#x27;;ctx.arc(x.x,x.y,Math.max(3,canvas.width/230),0,Math.PI*2);ctx.fill()}
+}
+function timePosition(){return camMode?(performance.now()-sampleStart)/1000:video.currentTime||0}
+function metricsTimestamp(t){return {t:Number(t.toFixed(3)),elbow:poseState.elbow,knee:poseState.knee,trunk:poseState.trunk,shoulder:poseState.shoulder,stride:poseState.stride,quality:poseState.quality}}
+function recordFrame(t){if(!poseState?.ok)return;frames.push(metricsTimestamp(t));if(frames.length&gt;2400)frames.splice(0,2);$(&#x27;counter&#x27;).textContent=`解析サンプル: ${frames.length}件`;if(frames.length%10===0){updateTrend();updateInsights()}}
+function suggest(v){if(!v?.ok)return &#x27;関節が十分に追跡できません。全身を大きく映し、遮蔽物・複数人・急なカメラ移動を避けてください。&#x27;;if(v.quality&lt;.66)return &#x27;関節の見え方が不安定です。角度の数値は特に参考程度にしてください。&#x27;;return &#x27;青線はAIが推定した骨格。肘角度・膝角度は画像上の計算値です。撮影角度や中継のカメラ切替にも注意してください。&#x27;}
+function processFrame(now){if(!running)return;frameRequest=requestAnimationFrame(processFrame);if(now-lastSampleAt&lt;Number($(&#x27;sampleMs&#x27;).value))return;if(busy||video.readyState&lt;2)return;
+ if(!camMode&amp;&amp;video.paused)return;
+ if(!camMode&amp;&amp;video.currentTime===lastMediaTime)return;
+ lastSampleAt=now;lastMediaTime=video.currentTime;busy=true;
+ try{const result=ai.detectForVideo(video,performance.now());const pose=result.landmarks?.[0]||null;lastLandmarks=pose;overlay(pose);
+  poseState=pose?calcPose(pose,$(&#x27;throwHand&#x27;).value):{ok:false,reason:&#x27;映像から人物を検出できません&#x27;};updateMetrics(poseState);
+  $(&#x27;trackStatus&#x27;).textContent=poseState.ok?&#x27;姿勢検出: OK&#x27;:&#x27;姿勢検出: 不十分&#x27;;$(&#x27;tip&#x27;).textContent=suggest(poseState);
+  if(poseState.ok)recordFrame(timePosition());
+ }catch(e){stopAnalyze();status(&#x27;姿勢推定エラー: &#x27;+e.message,true)}finally{busy=false}}
+async function loadAI(){if(ai){status(&#x27;AIは読み込み済み。映像を選んで解析を開始できます。&#x27;);return}if($(&#x27;loadAI&#x27;).disabled)return;$(&#x27;loadAI&#x27;).disabled=true;status(&#x27;MediaPipeのAIモデルとWASMを読み込み中。初回は通信が必要です。&#x27;);
+ try{const mod=await import(&#x27;https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/vision_bundle.mjs&#x27;);
+  const Vision=mod.default?.PoseLandmarker?mod.default:mod;
+  const files=await Vision.FilesetResolver.forVisionTasks(&#x27;https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm&#x27;);
+  ai=await Vision.PoseLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:&#x27;https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task&#x27;,delegate:&#x27;CPU&#x27;},runningMode:&#x27;VIDEO&#x27;,numPoses:1,minPoseDetectionConfidence:.55,minPosePresenceConfidence:.55,minTrackingConfidence:.5});
+  status(&#x27;AIモデルの読み込み成功。カメラまたは動画を使えます。&#x27;);$(&#x27;loadAI&#x27;).textContent=&#x27;✅ AI準備済み&#x27;;$(&#x27;run&#x27;).disabled=!hasVideo();
+ }catch(e){status(&#x27;モデル読込失敗: &#x27;+(e.message||e)+ &#x27;。ネットワーク・CDNの接続・ブラウザ制限を確認してください。&#x27;,true);$(&#x27;loadAI&#x27;).disabled=false}}
+function hasVideo(){return !!(stream||videoUrl||recordedUrl)&amp;&amp;video.readyState&gt;=1}
+function stopAnalyze(){running=false;cancelAnimationFrame(frameRequest);$(&#x27;run&#x27;).disabled=!ai||!hasVideo();$(&#x27;stop&#x27;).disabled=true;$(&#x27;bookmarkPlant&#x27;).disabled=$(&#x27;bookmarkRelease&#x27;).disabled=true}
+function resetAnalysis(){stopAnalyze();frames=[];marks=[];poseState=null;lastMediaTime=-1;lastSampleAt=0;lastLandmarks=null;overlay(null);updateMetrics(null);$(&#x27;counter&#x27;).textContent=&#x27;解析サンプル: 0件&#x27;;$(&#x27;trackStatus&#x27;).textContent=&#x27;姿勢検出: —&#x27;;$(&#x27;tip&#x27;).textContent=&#x27;姿勢を追跡すると解析値が表示されます。&#x27;;updateTrend();updateInsights();sessionStartDate=new Date().toISOString()}
+async function offCamera(){stopAnalyze();if(recorder&amp;&amp;recorder.state!==&#x27;inactive&#x27;){try{recorder.stop()}catch{}}if(stream){stream.getTracks().forEach(t=&gt;t.stop());stream=null}camMode=false;$(&#x27;recordStart&#x27;).disabled=true;$(&#x27;recordStop&#x27;).disabled=true;$(&#x27;cameraOff&#x27;).disabled=true;}
+async function cameraOn(){await offCamera();if(videoUrl){URL.revokeObjectURL(videoUrl);videoUrl=null}if(recordedUrl){URL.revokeObjectURL(recordedUrl);recordedUrl=null}resetAnalysis();
+ if(!navigator.mediaDevices?.getUserMedia){status(&#x27;この開き方ではカメラを利用できません。HTTPSのページで開くか、「動画を選ぶ」を使ってください。&#x27;,true);return}
+ try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:&#x27;environment&#x27;},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}}});video.srcObject=stream;video.controls=false;video.muted=true;await video.play();camMode=true;resizeCanvas();$(&#x27;placeholder&#x27;).classList.add(&#x27;hidden&#x27;);$(&#x27;liveTag&#x27;).textContent=&#x27;カメラ映像&#x27;;$(&#x27;cameraOff&#x27;).disabled=false;$(&#x27;recordStart&#x27;).disabled=!window.MediaRecorder;$(&#x27;run&#x27;).disabled=!ai;status(&#x27;カメラ起動成功。AIを準備して「解析開始」を押してください。&#x27;);}
+ catch(e){status(&#x27;カメラを起動できません: &#x27;+e.message+&#x27;。権限とHTTPSを確認してください。&#x27;,true)}}
+async function loadVideo(f){if(!f)return;await offCamera();resetAnalysis();if(videoUrl)URL.revokeObjectURL(videoUrl);if(recordedUrl){URL.revokeObjectURL(recordedUrl);recordedUrl=null}videoUrl=URL.createObjectURL(f);video.srcObject=null;video.src=videoUrl;video.controls=true;video.muted=true;video.preload=&#x27;auto&#x27;;video.load();$(&#x27;placeholder&#x27;).classList.add(&#x27;hidden&#x27;);$(&#x27;liveTag&#x27;).textContent=&#x27;動画ファイル&#x27;;status(&#x27;動画を選択: &#x27;+f.name+&#x27;。読み込み後に解析開始できます。&#x27;);}
+function startAnalyze(){if(!ai){status(&#x27;先に「AIモデルを読み込む」を押してください。&#x27;,true);return}if(video.readyState&lt;2){status(&#x27;映像の読込が完了していません。&#x27;,true);return}if(running)return;running=true;lastSampleAt=0;lastMediaTime=-1;sampleStart=performance.now();$(&#x27;run&#x27;).disabled=true;$(&#x27;stop&#x27;).disabled=false;$(&#x27;snap&#x27;).disabled=false;$(&#x27;bookmarkPlant&#x27;).disabled=$(&#x27;bookmarkRelease&#x27;).disabled=false;
+ if(!camMode&amp;&amp;video.paused)video.play().catch(e=&gt;status(&#x27;動画再生失敗: &#x27;+e.message,true));frameRequest=requestAnimationFrame(processFrame);status(&#x27;解析中。関節の可視性が低いフレームは記録しません。&#x27;)}
+function download(name,blob){const u=URL.createObjectURL(blob),a=document.createElement(&#x27;a&#x27;);a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=&gt;URL.revokeObjectURL(u),6000)}
+function saveSnap(){if(video.readyState&lt;2)return;resizeCanvas();const c=document.createElement(&#x27;canvas&#x27;);c.width=canvas.width;c.height=canvas.height;const x=c.getContext(&#x27;2d&#x27;);x.drawImage(video,0,0,c.width,c.height);x.drawImage(canvas,0,0);c.toBlob(b=&gt;{if(b)download(&#x27;pitcher_frame_&#x27;+Date.now()+&#x27;.png&#x27;,b)},&#x27;image/png&#x27;)}
+function recordStart(){if(!stream||!window.MediaRecorder){status(&#x27;録画に対応していないか、カメラが起動していません。&#x27;,true);return}const types=[&#x27;video/webm;codecs=vp8&#x27;,&#x27;video/webm&#x27;,&#x27;&#x27;];const mime=types.find(t=&gt;!t||MediaRecorder.isTypeSupported(t));try{recordChunks=[];recorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});recorder.ondataavailable=e=&gt;{if(e.data.size)recordChunks.push(e.data)};recorder.onstop=()=&gt;{if(!recordChunks.length){status(&#x27;録画データを保存できませんでした。&#x27;,true);return}const blob=new Blob(recordChunks,{type:recorder.mimeType||&#x27;video/webm&#x27;});download(&#x27;pitcher_recording_&#x27;+Date.now()+&#x27;.webm&#x27;,blob);status(&#x27;録画ファイルを端末に保存しました。動画を選ぶと再解析できます。&#x27;)};recorder.start(1000);$(&#x27;recordStart&#x27;).disabled=true;$(&#x27;recordStop&#x27;).disabled=false;status(&#x27;カメラを録画中（端末内）。終了するとWebM動画を保存します。&#x27;)}
+ catch(e){status(&#x27;録画開始失敗: &#x27;+e.message,true)}}
+function mark(kind){if(!hasVideo())return;marks.push({t:Number(timePosition().toFixed(3)),kind,source:&#x27;manual&#x27;});updateInsights();status((kind===&#x27;plant&#x27;?&#x27;接地&#x27;:&#x27;リリース&#x27;)+&#x27;時刻を目視でマークしました。&#x27;)}
+function fmean(a){return a.length?a.reduce((x,y)=&gt;x+y,0)/a.length:null}
+function clean(vals){return vals.filter(safe)}
+function stats(rows){const es=clean(rows.map(x=&gt;x.elbow)),ks=clean(rows.map(x=&gt;x.knee));return {count:rows.length,elbowAvg:fmean(es),elbowMin:es.length?Math.min(...es):null,elbowMax:es.length?Math.max(...es):null,kneeAvg:fmean(ks),kneeMin:ks.length?Math.min(...ks):null,kneeMax:ks.length?Math.max(...ks):null,qualityAvg:fmean(clean(rows.map(x=&gt;x.quality)))}}
+function updateTrend(){const c=$(&#x27;trend&#x27;),cx=c.getContext(&#x27;2d&#x27;),w=c.width,h=c.height;cx.clearRect(0,0,w,h);cx.fillStyle=&#x27;#0e2036&#x27;;cx.fillRect(0,0,w,h);cx.strokeStyle=&#x27;#294663&#x27;;cx.lineWidth=1;for(let i=0;i&lt;=4;i++){const y=10+i*(h-20)/4;cx.beginPath();cx.moveTo(25,y);cx.lineTo(w-8,y);cx.stroke()}cx.fillStyle=&#x27;#b4c9dc&#x27;;cx.font=&#x27;14px sans-serif&#x27;;for(const [v,y] of [[180,18],[90,h/2],[0,h-10]])cx.fillText(v+&#x27;°&#x27;,2,y);
+ if(frames.length&lt;2){cx.fillText(&#x27;解析後に推移を表示&#x27;,w/2-80,h/2);return}const rows=frames.slice(-100),t0=rows[0].t,t1=rows[rows.length-1].t;for(const [key,color] of [[&#x27;elbow&#x27;,&#x27;#6bc6ff&#x27;],[&#x27;knee&#x27;,&#x27;#80e7b0&#x27;]]){cx.strokeStyle=color;cx.lineWidth=3;cx.beginPath();let started=false;rows.forEach((r,i)=&gt;{if(!safe(r[key]))return;const x=25+(w-38)*(t1===t0?i/(rows.length-1):(r.t-t0)/(t1-t0)),y=10+(h-20)*(1-r[key]/180);if(!started){cx.moveTo(x,y);started=true}else cx.lineTo(x,y)});cx.stroke()}}
+function updateInsights(){const s=stats(frames);$(&#x27;validFrames&#x27;).textContent=s.count;$(&#x27;elbowRange&#x27;).textContent=s.count?pad(s.elbowMin)+&#x27;〜&#x27;+pad(s.elbowMax)+&#x27;°&#x27;:&#x27;—&#x27;;$(&#x27;kneeRange&#x27;).textContent=s.count?pad(s.kneeMin)+&#x27;〜&#x27;+pad(s.kneeMax)+&#x27;°&#x27;:&#x27;—&#x27;;$(&#x27;insightsText&#x27;).textContent=s.count?`測定サンプル ${s.count}件。肘角度の平均 ${pad(s.elbowAvg,1)}°、踏み出し膝角度の平均 ${pad(s.kneeAvg,1)}°、可視性平均 ${pad(s.qualityAvg*100,1)}%。平均は投球動作全体の重みづけをしていないため、投球イベントの評価には動画内の区間選択が必要です。いずれもカメラ視点による画像上の見かけの角度です。`:&#x27;まだ有効なフォームデータがありません。&#x27;;
+ $(&#x27;marks&#x27;).replaceChildren();if(!marks.length){$(&#x27;marks&#x27;).textContent=&#x27;まだ登録がありません。&#x27;;return}for(const m of marks){const p=document.createElement(&#x27;p&#x27;);p.textContent=`${m.t.toFixed(2)}秒：${m.kind===&#x27;plant&#x27;?&#x27;足の接地&#x27;:&#x27;リリース（目視）&#x27;}`;$(&#x27;marks&#x27;).append(p)}}
+function exportCSV(){const cols=[&#x27;time_s&#x27;,&#x27;elbow_deg&#x27;,&#x27;lead_knee_deg&#x27;,&#x27;trunk_deg&#x27;,&#x27;shoulder_deg&#x27;,&#x27;footwidth_ratio&#x27;,&#x27;visibility_avg&#x27;];const out=[cols.join(&#x27;,&#x27;),...frames.map(r=&gt;[r.t,r.elbow,r.knee,r.trunk,r.shoulder,r.stride,r.quality].map(v=&gt;safe(v)?Number(v).toFixed(4):&#x27;&#x27;).join(&#x27;,&#x27;))].join(&#x27;\r\n&#x27;);download(&#x27;pitcher_pose_&#x27;+Date.now()+&#x27;.csv&#x27;,new Blob([&#x27;\ufeff&#x27;+out],{type:&#x27;text/csv;charset=utf-8&#x27;}))}
+function exportJSON(){download(&#x27;pitcher_pose_&#x27;+Date.now()+&#x27;.json&#x27;,new Blob([JSON.stringify({app:&#x27;NPB Pitcher Vision&#x27;,version:VERSION,hand:$(&#x27;throwHand&#x27;).value,sessionStartDate,frames,marks,warning:&#x27;2D estimated angles from camera. Not a calibrated biomechanical or medical measurement.&#x27;},null,2)],{type:&#x27;application/json&#x27;}))}
+function saveSession(){if(!frames.length){status(&#x27;保存できる姿勢の測定結果がありません。動画を解析してください。&#x27;,true);return}const id=Date.now().toString(36);const s={id,name:$(&#x27;sessionName&#x27;).value.trim()||&#x27;投球フォーム &#x27;+new Date().toLocaleString(&#x27;ja-JP&#x27;),date:new Date().toISOString(),hand:$(&#x27;throwHand&#x27;).value,marks:[...marks],frames:frames.filter((_,i)=&gt;i%Math.max(1,Math.ceil(frames.length/800))===0).map(r=&gt;r),stats:stats(frames)};sessions.unshift(s);sessions=sessions.slice(0,20);try{localStorage.setItem(KEY,JSON.stringify(sessions));status(&#x27;端末に解析セッションを保存しました。動画自体は保存していません。&#x27;);refreshSaved()}catch(e){status(&#x27;保存容量不足: &#x27;+e.message+&#x27;。CSV/JSON書き出しを利用してください。&#x27;,true)}}
+function refreshSaved(){const body=$(&#x27;savedSessions&#x27;);body.replaceChildren();if(!sessions.length){const row=document.createElement(&#x27;tr&#x27;);row.innerHTML=&#x27;&lt;td colspan=&quot;4&quot;&gt;保存なし&lt;/td&gt;&#x27;;body.append(row)}for(const s of sessions){const tr=document.createElement(&#x27;tr&#x27;);for(const val of [s.name,`${s.stats.count}件`,pad(s.stats.elbowAvg,1)+&#x27;°&#x27;]){const td=document.createElement(&#x27;td&#x27;);td.textContent=val;tr.append(td)}const td=document.createElement(&#x27;td&#x27;),b=document.createElement(&#x27;button&#x27;);b.textContent=&#x27;削除&#x27;;b.style.minHeight=&#x27;34px&#x27;;b.addEventListener(&#x27;click&#x27;,()=&gt;{if(!confirm(&#x27;この解析記録を削除しますか？&#x27;))return;sessions=sessions.filter(x=&gt;x.id!==s.id);try{localStorage.setItem(KEY,JSON.stringify(sessions))}catch{}refreshSaved()});td.append(b);tr.append(td);body.append(tr)}for(const id of [&#x27;compareA&#x27;,&#x27;compareB&#x27;]){$(id).replaceChildren();const initial=new Option(&#x27;選択してください&#x27;,&#x27;&#x27;);$(id).append(initial);for(const s of sessions)$(id).append(new Option(s.name,s.id))}$(&#x27;compareResult&#x27;).textContent=&#x27;2つの保存セッションを選択して比較できます。&#x27;}
+function compare(){const a=sessions.find(s=&gt;s.id===$(&#x27;compareA&#x27;).value),b=sessions.find(s=&gt;s.id===$(&#x27;compareB&#x27;).value);if(!a||!b||a.id===b.id){$(&#x27;compareResult&#x27;).textContent=&#x27;異なる2セッションを選択してください。&#x27;;return}if(a.hand!==b.hand){$(&#x27;compareResult&#x27;).textContent=&#x27;右投げと左投げは同じ条件で比較できません。&#x27;;return}const e=(a.stats.elbowAvg-b.stats.elbowAvg),k=(a.stats.kneeAvg-b.stats.kneeAvg);$(&#x27;compareResult&#x27;).textContent=`A平均 肘 ${pad(a.stats.elbowAvg,1)}° / B平均 ${pad(b.stats.elbowAvg,1)}°（差 ${pad(e,1)}°）。踏み出し膝 A ${pad(a.stats.kneeAvg,1)}° / B ${pad(b.stats.kneeAvg,1)}°（差 ${pad(k,1)}°）。差は撮影条件や動作区間にも左右され、改善・悪化を意味しません。`}
+$(&#x27;loadAI&#x27;).addEventListener(&#x27;click&#x27;,loadAI);$(&#x27;cameraOn&#x27;).addEventListener(&#x27;click&#x27;,cameraOn);$(&#x27;cameraOff&#x27;).addEventListener(&#x27;click&#x27;,async()=&gt;{await offCamera();video.pause();video.srcObject=null;video.removeAttribute(&#x27;src&#x27;);video.load();resetAnalysis();$(&#x27;liveTag&#x27;).textContent=&#x27;カメラ停止&#x27;;status(&#x27;カメラを停止しました。&#x27;)});$(&#x27;chooseVideo&#x27;).addEventListener(&#x27;change&#x27;,e=&gt;loadVideo(e.target.files?.[0]));video.addEventListener(&#x27;loadedmetadata&#x27;,()=&gt;{resizeCanvas();$(&#x27;run&#x27;).disabled=!ai;});video.addEventListener(&#x27;ended&#x27;,()=&gt;{if(!camMode){stopAnalyze();status(&#x27;動画の再生が終了しました。解析結果は保存・書き出しできます。&#x27;)}});$(&#x27;run&#x27;).addEventListener(&#x27;click&#x27;,startAnalyze);$(&#x27;stop&#x27;).addEventListener(&#x27;click&#x27;,()=&gt;{stopAnalyze();status(&#x27;解析を停止しました。結果は残っています。&#x27;)});$(&#x27;snap&#x27;).addEventListener(&#x27;click&#x27;,saveSnap);$(&#x27;recordStart&#x27;).addEventListener(&#x27;click&#x27;,recordStart);$(&#x27;recordStop&#x27;).addEventListener(&#x27;click&#x27;,()=&gt;{if(recorder?.state!==&#x27;inactive&#x27;)recorder.stop();$(&#x27;recordStop&#x27;).disabled=true;$(&#x27;recordStart&#x27;).disabled=false});$(&#x27;bookmarkPlant&#x27;).addEventListener(&#x27;click&#x27;,()=&gt;mark(&#x27;plant&#x27;));$(&#x27;bookmarkRelease&#x27;).addEventListener(&#x27;click&#x27;,()=&gt;mark(&#x27;release&#x27;));$(&#x27;exportCSV&#x27;).addEventListener(&#x27;click&#x27;,exportCSV);$(&#x27;exportJSON&#x27;).addEventListener(&#x27;click&#x27;,exportJSON);$(&#x27;saveSession&#x27;).addEventListener(&#x27;click&#x27;,saveSession);for(const id of [&#x27;compareA&#x27;,&#x27;compareB&#x27;])$(id).addEventListener(&#x27;change&#x27;,compare);
+// self-testable numeric logic, exposed read-only for local automated UI checks.
+window.__pitcherTest={calcPose,stats,angle:ang};
+updateTrend();updateInsights();refreshSaved();$(&#x27;cameraOff&#x27;).disabled=true;
+})();
+&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;
+"></iframe></div></section>
+<section id="review" class="hidden">
+ <div class="card"><h2>試合後検証</h2><p class="info">取得した試合が「試合終了」になると、保存済み予測に結果を自動対応付け。APIで取得できなかった場合は手動登録できます。</p><div class="grid"><div><label for="fas">最終 先攻得点</label><input type="number" min="0" id="fas" value="0"></div><div><label for="fhs">最終 後攻得点</label><input type="number" min="0" id="fhs" value="0"></div></div><div class="actions"><button class="primary" id="finalize">この試合の結果を手動登録</button></div><div id="metrics"></div></div>
+ <div class="card"><h2>保存済み予測</h2><div class="table-scroll"><table><thead><tr><th>予測時刻</th><th>試合</th><th>スコア</th><th>予測</th><th>確定結果</th></tr></thead><tbody id="history"></tbody></table></div></div>
+</section>
+<section id="settings" class="hidden">
+ <div class="card"><h2>無料データ連携の設定</h2><p class="info">API-SPORTSのFreeプランを使います。登録時に発行されるAPIキーをこの画面に貼るだけ。NPB＋はスクレイピングしません。</p>
+ <label for="apiKey">API-SPORTS Baseball のAPIキー</label><input id="apiKey" class="setting-key" type="password" autocomplete="off" spellcheck="false" placeholder="APIキーを貼り付け">
+ <div class="checkrow"><input id="rememberKey" type="checkbox"><label for="rememberKey" style="margin:0">この端末にキーを保存（共有端末ではOFF）</label></div>
+ <div class="actions"><button class="primary" id="saveKey">キーを設定</button><button id="deleteKey">キーを削除</button></div>
+ <p class="subtle">キーはAPI提供元への通信にのみ使います。保存をONにすると端末ブラウザ内に平文で保存されます。HTMLにキーを埋め込んで公開しないでください。</p>
+ <p><a href="https://dashboard.api-football.com/" target="_blank" rel="noopener noreferrer">無料APIキーの登録・確認ページ</a></p>
+ <p><a href="https://api-sports.io/sports/baseball" target="_blank" rel="noopener noreferrer">対応リーグ・無料枠の説明</a></p>
+ </div>
+ <div class="card"><h2>データ保存・バックアップ</h2><p class="info">予測はPixelのブラウザ内に保存。前バージョンの同じ保存領域を使用します（Androidのアプリや別URLでは共有されない場合あり）。</p><div class="actions"><button id="export">JSON保存</button><button id="csv">CSV保存</button></div><label for="import">JSONバックアップを読み込む</label><input id="import" type="file" accept=".json,application/json"><div class="actions"><button class="danger" id="clear">予測履歴を全削除</button></div></div>
+ <div class="card"><h2>データの範囲と注意点</h2><p class="info">API-SPORTSはNPBの日程、得点、試合状態、イニングなどを提供。球種、球速、アウト、走者、打席ごとの履歴はこのAPIでの取得を確認できていません。ホーム／アウェーの表記と先攻・後攻は原則一致しますが、例外の主催試合は手動確認してください。</p><p class="info">1日100リクエストの無料枠に対し、このアプリは80回の安全上限と30分間隔で節約。実際の残回数はAPIアカウントの利用状況によります。別端末での利用分は含みません。アプリを閉じている間のバックグラウンド更新は行いません。</p><p class="info">API提供元の利用規約では、NPB等のデータの再公開に別途権利者許諾が必要な場合があるとされています。このファイルは個人観戦用として使用してください。</p></div>
+</section>
+</main><footer>NPB AI LAB v0.5 / データ提供：API-SPORTS（接続時） / NPB非公式・個人観戦用<br>実際のライブデータへの通信確認は、ご自身のキー設定後に行われます。</footer>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const TEAMS=['中日','巨人','阪神','DeNA','広島','ヤクルト','ソフトバンク','日本ハム','オリックス','楽天','西武','ロッテ'];
+const fields=['away','home','as','hs','inning','half','outs','b1','b2','b3','balls','strikes','pitches'];
+for(const id of ['away','home']) $(id).replaceChildren(...TEAMS.map(t=>new Option(t,t)));
+$('home').value='巨人';
+const DB_KEY='npb-ai-lab-v01', CFG_KEY='npb-ai-lab-v04-config', SESSION_KEY='npb-ai-lab-v04-session';
+const SAFE_LOCAL=(()=>{try{return window.localStorage}catch{return null}})();
+const SAFE_SESSION=(()=>{try{return window.sessionStorage}catch{return null}})();
+function storeGet(storage,key){try{return storage.getItem(key)}catch{return null}}
+function storeSet(storage,key,value){try{storage.setItem(key,value);return true}catch{return false}}
+function storeRemove(storage,key){try{storage.removeItem(key)}catch{}}
+let db;try{db=JSON.parse(storeGet(SAFE_LOCAL,DB_KEY))||{records:[],finals:{}}}catch{db={records:[],finals:{}}}
+if(!Array.isArray(db.records)||!db.finals||typeof db.finals!=='object')db={records:[],finals:{}};
+let cfg;try{cfg=JSON.parse(storeGet(SAFE_LOCAL,CFG_KEY))||{}}catch{cfg={}}
+let apiKey=cfg.apiKey||storeGet(SAFE_SESSION,SESSION_KEY)||'';
+$('rememberKey').checked=!!cfg.apiKey;
+$('apiKey').value=apiKey;
+function saveDB(){if(!storeSet(SAFE_LOCAL,DB_KEY,JSON.stringify(db)))showStatus('履歴の保存に失敗しました。ブラウザの保存制限を確認してください。',true)}
+function jstDate(dt=new Date()){const ps=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(dt);const get=t=>ps.find(p=>p.type===t).value;return `${get('year')}-${get('month')}-${get('day')}`}
+$('gameDate').value=jstDate();
+let apiLeague=Number(cfg.leagueId)||null;
+let games=[],activeGameId=null,auto=false,lastFetchAt=0,fetching=false,sourceAuto=false;
+const QUOTA_KEY='npb-ai-lab-v04-quota', MIN_INTERVAL=30*60*1000, SAFE_DAILY_CAP=80;
+let memoryQuota={day:new Date().toISOString().slice(0,10),count:0};
+function getQuota(){const day=new Date().toISOString().slice(0,10);let q;try{q=JSON.parse(storeGet(SAFE_LOCAL,QUOTA_KEY))||{}}catch{q={}}if(q.day===day)return q;if(memoryQuota.day!==day)memoryQuota={day,count:0};return memoryQuota}
+function noteRequest(){const q=getQuota();q.count++;memoryQuota=q;storeSet(SAFE_LOCAL,QUOTA_KEY,JSON.stringify(q));quotaText()}
+function quotaText(){const q=getQuota();$('quotaStatus').textContent=`当アプリからのUTC日次API呼び出し：${q.count} / 安全上限${SAFE_DAILY_CAP}回（他アプリの利用分は含みません）`}
+function showStatus(msg,bad=false){$('fetchStatus').textContent=msg;$('fetchStatus').className='status '+(bad?'bad':'good')}
+function connection(){const connected=!!apiKey;$('connectionBadge').textContent=connected?'キー設定済み':'未接続';$('connectionBadge').className='badge '+(connected?'green':'warn');$('alert').textContent=connected?'APIキー設定済み。試合日の「試合を自動取得」で連携を開始できます。':'APIキー未設定：設定タブで無料キーを登録すると日程・得点を自動取得できます。';$('alert').classList.toggle('hidden',connected)}
+function state(){const s={};for(const k of fields)s[k]=$(k).value;for(const k of ['as','hs','inning','outs','b1','b2','b3','balls','strikes','pitches'])s[k]=s[k]===''?NaN:Number(s[k]);return s}
+function valid(s){return s.away!==s.home&&[s.as,s.hs,s.pitches].every(v=>Number.isInteger(v)&&v>=0)&&Number.isInteger(s.inning)&&s.inning>=1&&s.inning<=20&&Number.isInteger(s.outs)&&s.outs>=0&&s.outs<=2&&Number.isInteger(s.balls)&&s.balls<=3&&Number.isInteger(s.strikes)&&s.strikes<=2}
+// これは実測NPBデータから学習したモデルではなく、試作の仮定式。勝率を保証しない。
+function estimate(s){const completed=Math.max(0,(s.inning-1)*2+(s.half==='bottom'?1:0));const remaining=Math.max(.3,(18-completed)/2);const z=((s.as-s.hs)-.12)/Math.sqrt(remaining+1.5);return Math.max(.02,Math.min(.98,1/(1+Math.exp(-.95*z))))}
+function matchId(s){return activeGameId?`api-sports:${activeGameId}`:`manual:${$('gameDate').value}:${s.away}:${s.home}`}
+function render(){const s=state();if(!valid(s)){$('score').textContent='入力値を確認';$('awp').textContent=$('hwp').textContent='—';return null}const p=estimate(s);$('score').textContent=`${s.away} ${s.as} - ${s.hs} ${s.home}`;$('awp').textContent=(100*p).toFixed(1)+'%';$('hwp').textContent=(100*(1-p)).toFixed(1)+'%';$('winbar').style.width=(p*100).toFixed(1)+'%';const bs=[s.b1?'一塁':null,s.b2?'二塁':null,s.b3?'三塁':null].filter(Boolean).join('・')||'走者なし';$('notes').textContent=`${s.inning}回${s.half==='top'?'表':'裏'}・${s.outs}アウト・${bs}・B${s.balls} S${s.strikes}。`;const msg=s.outs===2?'2アウトでは送りバントの意味が薄く、打者・投手の相性が重要。':s.b3?'三塁走者あり。犠飛・スクイズ・強攻は打順と得点差で比較すべき。':s.b1&&s.outs===0?'無死一塁。バントと強攻は打者能力と残りイニングで期待値が変化。':'投手交代・代打は選手成績が未連携のため客観比較は保留。';$('strategy').textContent='分析メモ：'+msg;return p}
+function teamName(x){const n=String(x||'');const s=n.toLowerCase().normalize('NFKC');const match=[[/chunichi|dragons|中日/,'中日'],[/yomiuri|giants|読売|巨人/,'巨人'],[/hanshin|tigers|阪神/,'阪神'],[/dena|baystars|yokohama|横浜/,'DeNA'],[/hiroshima|carp|広島/,'広島'],[/yakult|swallows|ヤクルト/,'ヤクルト'],[/softbank|hawks|ソフトバンク/,'ソフトバンク'],[/nippon.ham|fighters|日本ハム/,'日本ハム'],[/orix|buffaloes|オリックス/,'オリックス'],[/rakuten|eagles|楽天/,'楽天'],[/seibu|lions|西武/,'西武'],[/lotte|marines|ロッテ/,'ロッテ']];return match.find(([re])=>re.test(s))?.[1]||n}
+function pickName(t){return typeof t==='string'?t:t?.name||t?.team?.name||'チーム名未取得'}
+function numOrNull(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)&&n>=0?n:null}
+function normalizeGame(g){const awayRaw=pickName(g.teams?.away||g.away),homeRaw=pickName(g.teams?.home||g.home);
+ const away=teamName(awayRaw),home=teamName(homeRaw),status=g.status?.short||g.status?.code||g.status||'';
+ const a=numOrNull(g.scores?.away?.total??g.scores?.away?.runs??g.away?.runs??g.away_score?.total??g.away_score);
+ const h=numOrNull(g.scores?.home?.total??g.scores?.home?.runs??g.home?.runs??g.home_score?.total??g.home_score);
+ const stat=String(status).toUpperCase(),inningMatch=stat.match(/^IN(\d+)$/),inn=inningMatch?Number(inningMatch[1]):numOrNull(g.status?.inning);
+ const half=typeof g.status?.half==='string'&&/^(top|bottom)$/i.test(g.status.half)?g.status.half.toLowerCase():null;
+ const outs=numOrNull(g.status?.outs);
+ return {id:String(g.id??g.game?.id??''),away,home,rawAway:awayRaw,rawHome:homeRaw,as:a,hs:h,status:stat,inning:inn,half,outs,date:g.date||g.game?.date||'',raw:g}
+}
+function describeStatus(g){if(g.status==='FT')return '試合終了';if(g.status==='NS')return '開始前';if(g.status==='POST')return '延期';if(g.status==='CANC')return '中止';if(g.status==='INTR')return '中断';if(g.status==='ABD')return '打ち切り';if(g.status.startsWith('IN'))return `${g.inning||'?'}回・試合中（表裏は未取得）`;return g.status||'状態未取得'}
+function ensureOption(id,name){if(!Array.from($(id).options).some(o=>o.value===name))$(id).add(new Option(name,name))}
+function selectGame(id){const g=games.find(x=>x.id===String(id));if(!g)return;activeGameId=g.id;sourceAuto=true;ensureOption('away',g.away);ensureOption('home',g.home);$('away').value=g.away;$('home').value=g.home;
+ if(g.as!==null)$('as').value=g.as;if(g.hs!==null)$('hs').value=g.hs;
+ if(g.inning!==null&&g.inning>=1&&g.inning<=20)$('inning').value=g.inning;
+ if(g.half)$('half').value=g.half;if(g.outs!==null&&g.outs<=2)$('outs').value=g.outs;
+ $('sourceTag').textContent=`API連携 ${describeStatus(g)}`;
+ $('sourceNote').textContent=`API自動反映：球団・得点${g.inning?'・イニング':''}。表裏・アウト・走者・カウント・球数は未提供なら手動。API最終取得時刻は上の状態欄を確認。`;
+ if(g.status==='FT'&&g.as!==null&&g.hs!==null){db.finals[`api-sports:${g.id}`]={as:g.as,hs:g.hs,ts:new Date().toISOString(),source:'api-sports'};saveDB();updateReview()}
+ render();drawGames()}
+function drawGames(){const target=$('games');target.replaceChildren();if(!games.length){const p=document.createElement('p');p.className='muted';p.textContent='この日付のNPB試合はありません（または提供元データが未掲載です）。';target.append(p);return}
+ for(const g of games){const b=document.createElement('button');b.className='game-btn'+(g.id===activeGameId?' selected':'');const name=document.createElement('strong');name.textContent=`${g.away} ${g.as===null?'—':g.as} - ${g.hs===null?'—':g.hs} ${g.home}`;const info=document.createElement('small');info.textContent=`${describeStatus(g)} / 試合ID ${g.id}`;b.append(name,info);b.addEventListener('click',()=>selectGame(g.id));target.append(b)}}
+async function apiRequest(path,qs){if(!apiKey)throw Error('設定タブからAPIキーを登録してください');if(getQuota().count>=SAFE_DAILY_CAP)throw Error(`安全上限 ${SAFE_DAILY_CAP} 回に達しました。UTC日付変更後に再開してください。`);
+ const url=new URL('https://v1.baseball.api-sports.io/'+path);for(const [k,v] of Object.entries(qs||{}))if(v!==null&&v!==undefined)url.searchParams.set(k,String(v));noteRequest();
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),16000);let res;try{res=await fetch(url,{method:'GET',headers:{'x-apisports-key':apiKey},signal:controller.signal,cache:'no-store'});}catch(e){throw Error(`接続失敗（CORS・ネットワーク・file://制限の可能性）：${e.message}`)}finally{clearTimeout(timer)}
+ let payload;try{payload=await res.json()}catch{throw Error(`応答をJSONとして読み込めません（HTTP ${res.status}）`)}
+ if(!res.ok)throw Error(`API応答エラー HTTP ${res.status}: ${JSON.stringify(payload.errors||payload.message||'').slice(0,140)}`);
+ if(payload.errors&&(Array.isArray(payload.errors)?payload.errors.length:Object.keys(payload.errors).length))throw Error(`APIエラー：${JSON.stringify(payload.errors).slice(0,180)}`);
+ if(!Array.isArray(payload.response))throw Error('APIレスポンス形式が変更されました');return payload.response}
+async function leagueId(){if(apiLeague)return apiLeague;let l=await apiRequest('leagues',{search:'NPB'});let match=l.find(x=>/\bnpb\b/i.test(x.name||x.league?.name||''));if(!match){l=await apiRequest('leagues',{country:'Japan'});match=l.find(x=>/\bnpb\b/i.test(x.name||x.league?.name||''))}
+ const id=Number(match?.id??match?.league?.id);if(!Number.isInteger(id)||id<1)throw Error('NPBのリーグIDを見つけられません。APIの対応範囲を確認してください。');apiLeague=id;cfg.leagueId=id;storeConfig();return id}
+function storeConfig(){const c={leagueId:apiLeague};if($('rememberKey').checked&&apiKey)c.apiKey=apiKey;storeSet(SAFE_LOCAL,CFG_KEY,JSON.stringify(c));if(apiKey)storeSet(SAFE_SESSION,SESSION_KEY,apiKey)}
+async function fetchGames(isAuto=false){if(fetching)return;const date=$('gameDate').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){showStatus('有効な試合日を指定してください。',true);return}if(!apiKey){showStatus('設定タブにAPIキーを入力してください。',true);return}
+ if(isAuto&&date!==jstDate())return;if(isAuto&&Date.now()-lastFetchAt<MIN_INTERVAL-2500)return;
+ fetching=true;$('fetchGames').disabled=true;showStatus('取得中…');try{const id=await leagueId();const rows=await apiRequest('games',{date,league:id,timezone:'Asia/Tokyo'});games=rows.map(normalizeGame).filter(g=>g.id);
+ lastFetchAt=Date.now();const selected=games.find(x=>x.id===activeGameId);if(selected)selectGame(selected.id);else if(games.length)selectGame(games[0].id);else{activeGameId=null;sourceAuto=false;$('sourceTag').textContent='試合未選択';$('sourceNote').textContent='該当日付の試合がありません。フォームは前回の入力値のままです。';drawGames()}
+ showStatus(`${games.length}試合を取得 / ${new Date().toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'})} JST / ${isAuto?'自動更新':'手動取得'} / 取得元API-SPORTS`);
+ }catch(e){showStatus(e.message,true)}finally{fetching=false;$('fetchGames').disabled=false;quotaText()}}
+function toggleAuto(){auto=!auto;$('toggleAuto').textContent=`自動更新：${auto?'ON（30分間隔）':'OFF'}`;$('toggleAuto').className=auto?'primary':'';if(auto){if($('gameDate').value!==jstDate()){auto=false;$('toggleAuto').textContent='自動更新：OFF';alert('自動更新は本日（日本時間）の試合だけです。');return}fetchGames(false)}}
+$('fetchGames').onclick=()=>fetchGames(false);$('toggleAuto').onclick=toggleAuto;
+$('gameDate').onchange=()=>{games=[];activeGameId=null;sourceAuto=false;$('sourceTag').textContent='日付変更・試合未選択';$('sourceNote').textContent='以前の入力値が残っています。対象試合を取得・選択してください。';drawGames();if(auto){auto=false;$('toggleAuto').textContent='自動更新：OFF'}showStatus('日付を変更しました。「試合を自動取得」を押してください。')};
+setInterval(()=>{if(auto&&!document.hidden&&Date.now()-lastFetchAt>=MIN_INTERVAL)fetchGames(true)},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&auto&&Date.now()-lastFetchAt>=MIN_INTERVAL)fetchGames(true)});
+$('saveKey').onclick=()=>{const k=$('apiKey').value.trim();if(!k){alert('APIキーを入力してください');return}apiKey=k;apiLeague=null;cfg.leagueId=null;storeConfig();connection();showStatus('キーを設定しました。試合一覧を取得できます。');setTab('live')};
+$('deleteKey').onclick=()=>{if(!confirm('端末に保存されたAPIキーを削除しますか？'))return;apiKey='';apiLeague=null;storeRemove(SAFE_SESSION,SESSION_KEY);storeRemove(SAFE_LOCAL,CFG_KEY);$('apiKey').value='';$('rememberKey').checked=false;auto=false;connection();showStatus('キーを削除しました')};
+$('unlink').onclick=()=>{activeGameId=null;sourceAuto=false;$('sourceTag').textContent='手動';$('sourceNote').textContent='自動連携解除中。全項目を手動編集できます。';drawGames();render()};
+$('calc').onclick=()=>{const s=state();if(!valid(s)){alert('異なる球団、空欄のない正しい数値を入力してください。');return}const p=render();const m=matchId(s);db.records.push({ts:new Date().toISOString(),match:m,s,p,model:'heuristic-0.1',source:sourceAuto?'api-sports+manual':'manual',date:$('gameDate').value});saveDB();updateReview();alert('予測を保存しました（統計学習していない試作値）')};
+$('finalize').onclick=()=>{const s=state(),a=Number($('fas').value),h=Number($('fhs').value),m=matchId(s);if(![a,h].every(v=>Number.isInteger(v)&&v>=0)){alert('最終得点を確認してください');return}if(!db.records.some(r=>r.match===m)){alert('この試合の予測履歴がありません。先に予測を保存してください');return}db.finals[m]={as:a,hs:h,ts:new Date().toISOString(),source:'manual'};saveDB();updateReview();alert('結果を記録しました')};
+function updateReview(){const body=$('history');body.replaceChildren();for(const r of db.records.slice(-120).reverse()){const tr=document.createElement('tr'),f=db.finals[r.match];const values=[new Date(r.ts).toLocaleString('ja-JP'),`${r.s.away} - ${r.s.home}`,`${r.s.as}-${r.s.hs}`,`${(r.p*100).toFixed(1)}%`,f?`${f.as}-${f.hs}`:'未登録'];for(const value of values){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}if(!db.records.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='まだ予測がありません';tr.append(td);body.append(tr)}
+const g=db.records.filter(r=>db.finals[r.match]&&db.finals[r.match].as!==db.finals[r.match].hs);const b=g.length?g.reduce((acc,r)=>acc+(r.p-(db.finals[r.match].as>db.finals[r.match].hs?1:0))**2,0)/g.length:null;$('metrics').textContent=`予測保存：${db.records.length}件 / 採点対象：${g.length}件 / Brierスコア：${b===null?'—':b.toFixed(4)}（小さいほど良い。引き分け除外、同一試合の重複予測を含む）`}
+function download(name,body,mime){const u=URL.createObjectURL(new Blob([body],{type:mime}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+$('export').onclick=()=>download('npb_ai_lab_backup.json',JSON.stringify(db,null,2),'application/json');
+$('csv').onclick=()=>{const head=['timestamp','match','away','home','inning','half','away_score','home_score','win_probability','final_away','final_home'];const lines=db.records.map(r=>{const f=db.finals[r.match];return [r.ts,r.match,r.s.away,r.s.home,r.s.inning,r.s.half,r.s.as,r.s.hs,r.p,f?.as??'',f?.hs??''].map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')});download('npb_ai_lab_predictions.csv','\ufeff'+[head.join(','),...lines].join('\r\n'),'text/csv;charset=utf-8')};
+$('import').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;const d=JSON.parse(await file.text());if(!Array.isArray(d.records)||typeof d.finals!=='object'||!d.finals)throw Error('非対応のファイル形式');if(!confirm('予測履歴をバックアップで上書きしますか？'))return;db=d;saveDB();updateReview();alert('読み込みました')}catch(err){alert('読み込み失敗：'+err.message)}};
+$('clear').onclick=()=>{if(confirm('すべての予測履歴を削除しますか？')){db={records:[],finals:{}};saveDB();updateReview()}};
+function setTab(id){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));for(const name of ['live','pitcher','review','settings'])$(name).classList.toggle('hidden',id!==name);if(id==='review')updateReview(); if(id==='pitcher')$('alert').classList.add('hidden');else connection()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+// srcdoc は同一オリジンのため、内部ページの高さに合わせてネストしたスクロールを減らす。
+const pitcherIframe=document.querySelector('#pitcher iframe');
+pitcherIframe.addEventListener('load',()=>{
+ try{const doc=pitcherIframe.contentDocument;if(!doc?.body)return;
+ const adjust=()=>{const height=Math.max(540,Math.ceil(doc.body.scrollHeight)+12);pitcherIframe.style.height=height+'px'};
+ pitcherIframe.style.height='540px';adjust();
+ if(window.ResizeObserver)new ResizeObserver(adjust).observe(doc.body);
+ }catch(e){/* クロスオリジン等では固定高さのまま */}
+});
+fields.forEach(id=>$(id).addEventListener('change',()=>render()));
+connection();quotaText();render();updateReview();
+</script></body></html>
